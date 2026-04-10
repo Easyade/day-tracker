@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#faf9f7" media="(prefers-color-scheme: light)" />
+  <meta name="theme-color" content="#1a1917" media="(prefers-color-scheme: dark)" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="Day Tracker" />
+  <link rel="manifest" href="manifest.json" />
+  <link rel="apple-touch-icon" href="icon-192.svg" />
+  <title>Day Tracker</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,500;1,9..144,300&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #faf9f7;
+      --surface: #ffffff;
+      --surface2: #f3f1ee;
+      --text: #1a1917;
+      --text2: #6b6862;
+      --text3: #a09c96;
+      --border: rgba(26,25,23,0.1);
+      --border2: rgba(26,25,23,0.18);
+      --sit: #b78c6b;
+      --stand: #3d8f68;
+      --sleep: #5064b4;
+      --safe-bottom: env(safe-area-inset-bottom, 0px);
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #1a1917;
+        --surface: #242320;
+        --surface2: #2e2c29;
+        --text: #f0ede8;
+        --text2: #9e9a93;
+        --text3: #6b6760;
+        --border: rgba(240,237,232,0.1);
+        --border2: rgba(240,237,232,0.18);
+      }
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+    html, body { height: 100%; background: var(--bg); color: var(--text); }
+    body { font-family: 'DM Mono', monospace; overscroll-behavior: none; }
+
+    .app { max-width: 430px; margin: 0 auto; padding: 0 1rem; padding-bottom: calc(1.5rem + var(--safe-bottom)); min-height: 100vh; display: flex; flex-direction: column; }
+
+    header { padding: 3rem 0 1.5rem; }
+    .app-title { font-family: 'Fraunces', serif; font-size: 26px; font-weight: 300; letter-spacing: -0.5px; color: var(--text); }
+    .app-date { font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text3); margin-top: 4px; }
+
+    .cards { display: flex; flex-direction: column; gap: 10px; }
+
+    .card {
+      background: var(--surface);
+      border: 0.5px solid var(--border);
+      border-radius: 16px;
+      padding: 1.25rem;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      cursor: pointer;
+      transition: border-color 0.15s, transform 0.1s, background 0.15s;
+      -webkit-user-select: none;
+      user-select: none;
+      position: relative;
+      overflow: hidden;
+    }
+    .card:active { transform: scale(0.98); }
+    .card.active { border-color: var(--border2); background: var(--surface2); }
+    .card-glow { position: absolute; inset: 0; opacity: 0; transition: opacity 0.3s; pointer-events: none; border-radius: 16px; }
+    .card.active .card-glow { opacity: 1; }
+    .card[data-key="sit"] .card-glow { background: radial-gradient(ellipse at 10% 50%, rgba(183,140,107,0.08), transparent 70%); }
+    .card[data-key="stand"] .card-glow { background: radial-gradient(ellipse at 10% 50%, rgba(61,143,104,0.08), transparent 70%); }
+    .card[data-key="sleep"] .card-glow { background: radial-gradient(ellipse at 10% 50%, rgba(80,100,180,0.08), transparent 70%); }
+
+    .icon-ring {
+      width: 48px; height: 48px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0; font-size: 22px;
+      border: 0.5px solid var(--border);
+    }
+    .card[data-key="sit"] .icon-ring { background: rgba(183,140,107,0.1); border-color: rgba(183,140,107,0.25); }
+    .card[data-key="stand"] .icon-ring { background: rgba(61,143,104,0.1); border-color: rgba(61,143,104,0.25); }
+    .card[data-key="sleep"] .icon-ring { background: rgba(80,100,180,0.1); border-color: rgba(80,100,180,0.25); }
+
+    .card-body { flex: 1; min-width: 0; }
+    .card-label { font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text3); margin-bottom: 3px; }
+    .card-time { font-family: 'DM Mono', monospace; font-size: 30px; font-weight: 500; color: var(--text); letter-spacing: -1.5px; line-height: 1; }
+    .card-sub { font-size: 11px; margin-top: 5px; color: var(--text3); }
+    .card.active .card-sub { color: var(--stand); }
+    .card[data-key="sit"].active .card-sub { color: var(--sit); }
+    .card[data-key="sleep"].active .card-sub { color: var(--sleep); }
+
+    .pill { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 99px; font-size: 10px; letter-spacing: 0.05em; border: 0.5px solid var(--border); color: var(--text3); }
+    .pill.on { border-color: currentColor; }
+    .pill.on::before { content: ''; width: 5px; height: 5px; border-radius: 50%; background: currentColor; animation: pulse 1.2s ease-in-out infinite; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+    .card[data-key="sit"] .pill.on { color: var(--sit); }
+    .card[data-key="stand"] .pill.on { color: var(--stand); }
+    .card[data-key="sleep"] .pill.on { color: var(--sleep); }
+
+    .summary { margin-top: 1.25rem; background: var(--surface); border: 0.5px solid var(--border); border-radius: 16px; padding: 1.25rem; }
+    .summary-row { display: flex; justify-content: space-between; margin-bottom: 1rem; }
+    .summary-item { text-align: center; flex: 1; }
+    .summary-label { font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text3); margin-bottom: 4px; }
+    .summary-val { font-size: 16px; font-weight: 500; color: var(--text); }
+
+    .bar-track { height: 6px; background: var(--surface2); border-radius: 99px; overflow: hidden; display: flex; }
+    .bar-seg { height: 100%; transition: width 0.6s ease; }
+    .bar-legend { display: flex; justify-content: center; gap: 1.25rem; margin-top: 10px; }
+    .legend-item { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--text3); }
+    .legend-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+
+    .history { margin-top: 1.25rem; flex: 1; }
+    .history-title { font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text3); margin-bottom: 10px; }
+    .history-list { display: flex; flex-direction: column; gap: 8px; }
+    .history-row { display: flex; justify-content: space-between; align-items: center; font-size: 12px; padding: 8px 12px; background: var(--surface); border: 0.5px solid var(--border); border-radius: 10px; }
+    .history-date { color: var(--text2); }
+    .history-times { display: flex; gap: 10px; }
+    .history-seg { font-size: 11px; }
+
+    .bottom-actions { display: flex; gap: 8px; margin-top: 1.25rem; }
+    .btn { flex: 1; padding: 10px; background: transparent; border: 0.5px solid var(--border); border-radius: 10px; color: var(--text2); font-family: 'DM Mono', monospace; font-size: 11px; letter-spacing: 0.05em; cursor: pointer; text-transform: uppercase; transition: background 0.15s; }
+    .btn:active { background: var(--surface2); }
+
+    .toast { position: fixed; bottom: calc(1.5rem + var(--safe-bottom)); left: 50%; transform: translateX(-50%) translateY(20px); background: var(--text); color: var(--bg); padding: 8px 16px; border-radius: 99px; font-size: 12px; opacity: 0; transition: opacity 0.2s, transform 0.2s; pointer-events: none; white-space: nowrap; z-index: 99; }
+    .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+    .empty-history { text-align: center; padding: 1.5rem; font-size: 12px; color: var(--text3); }
+  </style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="app-title">Day Tracker</div>
+    <div class="app-date" id="today-date"></div>
+  </header>
+
+  <div class="cards">
+    <div class="card" data-key="sit" onclick="toggle('sit')">
+      <div class="card-glow"></div>
+      <div class="icon-ring">🪑</div>
+      <div class="card-body">
+        <div class="card-label">Sitting</div>
+        <div class="card-time" id="time-sit">00:00:00</div>
+        <div class="card-sub"><span class="pill" id="pill-sit">paused</span></div>
+      </div>
+    </div>
+    <div class="card" data-key="stand" onclick="toggle('stand')">
+      <div class="card-glow"></div>
+      <div class="icon-ring">🧍</div>
+      <div class="card-body">
+        <div class="card-label">Standing</div>
+        <div class="card-time" id="time-stand">00:00:00</div>
+        <div class="card-sub"><span class="pill" id="pill-stand">paused</span></div>
+      </div>
+    </div>
+    <div class="card" data-key="sleep" onclick="toggle('sleep')">
+      <div class="card-glow"></div>
+      <div class="icon-ring">🌙</div>
+      <div class="card-body">
+        <div class="card-label">Sleeping</div>
+        <div class="card-time" id="time-sleep">00:00:00</div>
+        <div class="card-sub"><span class="pill" id="pill-sleep">paused</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="summary">
+    <div class="summary-row">
+      <div class="summary-item">
+        <div class="summary-label">Tracked</div>
+        <div class="summary-val" id="total-tracked">0h 0m</div>
+      </div>
+      <div class="summary-item">
+        <div class="summary-label">Remaining</div>
+        <div class="summary-val" id="total-remaining">24h 0m</div>
+      </div>
+      <div class="summary-item">
+        <div class="summary-label">Sessions</div>
+        <div class="summary-val" id="total-sessions">0</div>
+      </div>
+    </div>
+    <div class="bar-track">
+      <div class="bar-seg" id="bar-sit" style="background:var(--sit);width:0%"></div>
+      <div class="bar-seg" id="bar-stand" style="background:var(--stand);width:0%"></div>
+      <div class="bar-seg" id="bar-sleep" style="background:var(--sleep);width:0%"></div>
+    </div>
+    <div class="bar-legend">
+      <div class="legend-item"><div class="legend-dot" style="background:var(--sit)"></div>sitting</div>
+      <div class="legend-item"><div class="legend-dot" style="background:var(--stand)"></div>standing</div>
+      <div class="legend-item"><div class="legend-dot" style="background:var(--sleep)"></div>sleeping</div>
+    </div>
+  </div>
+
+  <div class="history">
+    <div class="history-title">Past 7 days</div>
+    <div class="history-list" id="history-list">
+      <div class="empty-history">No history yet. Start tracking!</div>
+    </div>
+  </div>
+
+  <div class="bottom-actions">
+    <button class="btn" onclick="saveDay()">save day</button>
+    <button class="btn" onclick="resetToday()">reset today</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const DAY = 86400;
+const KEYS = ['sit','stand','sleep'];
+let state = { sit:{secs:0,running:false}, stand:{secs:0,running:false}, sleep:{secs:0,running:false} };
+let sessions = 0;
+let history = [];
+
+function loadStorage() {
+  try {
+    const saved = localStorage.getItem('daytracker_today');
+    if (saved) {
+      const d = JSON.parse(saved);
+      if (d.date === todayKey()) {
+        state.sit.secs = d.sit || 0;
+        state.stand.secs = d.stand || 0;
+        state.sleep.secs = d.sleep || 0;
+        sessions = d.sessions || 0;
+        updateDisplays();
+      }
+    }
+    const hist = localStorage.getItem('daytracker_history');
+    if (hist) { history = JSON.parse(hist); renderHistory(); }
+  } catch(e) {}
+}
+
+function saveStorage() {
+  try {
+    localStorage.setItem('daytracker_today', JSON.stringify({
+      date: todayKey(),
+      sit: state.sit.secs,
+      stand: state.stand.secs,
+      sleep: state.sleep.secs,
+      sessions
+    }));
+  } catch(e) {}
+}
+
+function todayKey() {
+  return new Date().toISOString().slice(0,10);
+}
+
+function fmt(s) {
+  const h = Math.floor(s/3600), m = Math.floor((s%3600)/60), sec = s%60;
+  return [h,m,sec].map(v=>String(v).padStart(2,'0')).join(':');
+}
+
+function fmtShort(s) {
+  const h = Math.floor(s/3600), m = Math.floor((s%3600)/60);
+  return h+'h '+m+'m';
+}
+
+function toggle(k) {
+  const wasRunning = state[k].running;
+  KEYS.forEach(o => { if(state[o].running) { state[o].running = false; updateCard(o); } });
+  if (!wasRunning) { state[k].running = true; sessions++; updateCard(k); }
+}
+
+function updateCard(k) {
+  const card = document.querySelector(`.card[data-key="${k}"]`);
+  const pill = document.getElementById('pill-'+k);
+  if (state[k].running) {
+    card.classList.add('active');
+    pill.className = 'pill on';
+    pill.textContent = 'tracking';
+  } else {
+    card.classList.remove('active');
+    pill.className = 'pill';
+    pill.textContent = 'paused';
+  }
+}
+
+function updateDisplays() {
+  KEYS.forEach(k => document.getElementById('time-'+k).textContent = fmt(state[k].secs));
+  const total = state.sit.secs + state.stand.secs + state.sleep.secs;
+  document.getElementById('total-tracked').textContent = fmtShort(total);
+  document.getElementById('total-remaining').textContent = fmtShort(Math.max(0, DAY - total));
+  document.getElementById('total-sessions').textContent = sessions;
+  KEYS.forEach(k => {
+    document.getElementById('bar-'+k).style.width = (state[k].secs / DAY * 100).toFixed(2) + '%';
+  });
+}
+
+function tick() {
+  KEYS.forEach(k => { if (state[k].running) state[k].secs++; });
+  updateDisplays();
+  saveStorage();
+}
+
+function saveDay() {
+  const total = state.sit.secs + state.stand.secs + state.sleep.secs;
+  if (total === 0) { showToast('Nothing to save yet'); return; }
+  const entry = {
+    date: todayKey(),
+    sit: state.sit.secs,
+    stand: state.stand.secs,
+    sleep: state.sleep.secs
+  };
+  history = history.filter(h => h.date !== entry.date);
+  history.unshift(entry);
+  history = history.slice(0, 7);
+  try { localStorage.setItem('daytracker_history', JSON.stringify(history)); } catch(e) {}
+  renderHistory();
+  showToast('Day saved!');
+}
+
+function resetToday() {
+  KEYS.forEach(k => { state[k].secs = 0; state[k].running = false; updateCard(k); });
+  sessions = 0;
+  updateDisplays();
+  saveStorage();
+  showToast('Timers reset');
+}
+
+function renderHistory() {
+  const list = document.getElementById('history-list');
+  if (!history.length) { list.innerHTML = '<div class="empty-history">No history yet. Start tracking!</div>'; return; }
+  const days = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  list.innerHTML = history.map(h => {
+    const d = new Date(h.date+'T12:00:00');
+    const label = days[d.getDay()] + ' ' + d.toLocaleDateString('en-GB',{day:'numeric',month:'short'});
+    return `<div class="history-row">
+      <span class="history-date">${label}</span>
+      <div class="history-times">
+        <span class="history-seg" style="color:var(--sit)">🪑 ${fmtShort(h.sit)}</span>
+        <span class="history-seg" style="color:var(--stand)">🧍 ${fmtShort(h.stand)}</span>
+        <span class="history-seg" style="color:var(--sleep)">🌙 ${fmtShort(h.sleep)}</span>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2000);
+}
+
+document.getElementById('today-date').textContent = new Date().toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+
+loadStorage();
+setInterval(tick, 1000);
+
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+}
+</script>
+</body>
+</html>
